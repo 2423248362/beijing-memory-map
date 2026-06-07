@@ -1,0 +1,37 @@
+{
+  "name": "@beijing-memory-map/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist-electron/main/index.js",
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 127.0.0.1\" \"npm run dev:electron\" \"npm run start:dev\"",
+    "dev:electron": "tsc -p tsconfig.electron.json --watch --preserveWatchOutput false",
+    "build": "tsc -p tsconfig.electron.json && vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.electron.json",
+    "start": "electron .",
+    "start:dev": "wait-on tcp:5173 dist-electron/main/index.js && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5173 electron ."
+  },
+  "dependencies": {
+    "@amap/amap-jsapi-loader": "^1.0.1",
+    "@beijing-memory-map/core": "0.1.0",
+    "@vitejs/plugin-react": "^5.1.1",
+    "lucide-react": "^0.556.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "sql.js": "^1.13.0",
+    "zustand": "^5.0.9"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@types/sql.js": "^1.4.11",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^39.2.6",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.7",
+    "wait-on": "^9.0.3"
+  }
+}

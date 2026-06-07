@@ -1,0 +1,15 @@
+{
+  "name": "beijing-memory-map",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first Beijing exploration desktop client.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm --workspace @beijing-memory-map/desktop run dev",
+    "build": "npm --workspace @beijing-memory-map/desktop run build",
+    "typecheck": "npm --workspace @beijing-memory-map/desktop run typecheck"
+  }
+}

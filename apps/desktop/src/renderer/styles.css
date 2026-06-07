@@ -1,0 +1,1056 @@
+:root {
+  font-family: Inter, "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  color: #172033;
+  background: #eef2f6;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.appShell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 430px;
+  grid-template-rows: 72px minmax(0, 1fr);
+  height: 100vh;
+  background: #eef2f6;
+}
+
+.topBar {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 260px minmax(240px, 1fr) 300px auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #d9e0e8;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.brand,
+.anchorBadge,
+.searchBox {
+  display: flex;
+  align-items: center;
+}
+
+.brand {
+  gap: 10px;
+}
+
+.brandMark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  color: #fff;
+  background: #2563eb;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 18px;
+}
+
+.brand span,
+.anchorBadge span,
+.panelContent p,
+.routeList span,
+.suggestion span,
+.settingsStatus,
+.infoGrid span,
+.mapStats span {
+  color: #667085;
+  font-size: 12px;
+}
+
+.searchBox {
+  position: relative;
+  gap: 8px;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid #d0d7e2;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.searchResults {
+  position: absolute;
+  z-index: 20;
+  top: 50px;
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 6px;
+  max-height: min(420px, calc(100vh - 92px));
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid #d0d7e2;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+}
+
+.searchResults button {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 8px;
+  text-align: left;
+  color: #172033;
+  background: transparent;
+}
+
+.searchResults button:hover {
+  background: #f2f5f9;
+}
+
+.searchResults strong,
+.searchResults span {
+  display: block;
+}
+
+.searchResults span,
+.emptyState,
+.taskCard span,
+.taskMeta,
+.routeList p,
+.infoBlock p {
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.emptyState {
+  padding: 10px;
+}
+
+.searchBox input,
+.panelContent input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  color: #172033;
+  background: transparent;
+}
+
+.anchorBadge {
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #d0d7e2;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.anchorBadge strong {
+  font-size: 13px;
+}
+
+.iconTextButton,
+.primaryButton,
+.secondaryButton,
+.imageStrip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  border-radius: 12px;
+}
+
+.iconTextButton {
+  padding: 0 12px;
+  border: 1px solid #d0d7e2;
+  color: #344054;
+  background: linear-gradient(180deg, #fff, #f8fafc);
+}
+
+.mapArea {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.amapContainer {
+  width: 100%;
+  height: 100%;
+}
+
+.mapPlaceholder {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  padding: 32px;
+  color: #344054;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(37, 99, 235, 0.08), transparent 30%),
+    #eef2f6;
+}
+
+.mapPlaceholder h2 {
+  font-size: 22px;
+}
+
+.mapPlaceholder p {
+  max-width: 520px;
+  color: #667085;
+  line-height: 1.6;
+}
+
+.mapPlaceholder button,
+.mapError button,
+.primaryButton {
+  padding: 0 14px;
+  border: 0;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #0f766e);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+}
+
+.primaryButton:disabled {
+  cursor: not-allowed;
+  background: #98a2b3;
+}
+
+.secondaryButton {
+  width: fit-content;
+  padding: 0 12px;
+  border: 1px solid #d0d7e2;
+  color: #344054;
+  background: linear-gradient(180deg, #fff, #f8fafc);
+}
+
+.mapError {
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  display: grid;
+  gap: 8px;
+  max-width: 420px;
+  padding: 14px;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  color: #991b1b;
+  background: #fff1f2;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12);
+}
+
+.mapStats {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  display: flex;
+  gap: 10px;
+}
+
+.mapStats div {
+  min-width: 86px;
+  padding: 10px 12px;
+  border: 1px solid #d0d7e2;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+}
+
+.mapStats strong,
+.mapStats span {
+  display: block;
+}
+
+.mapStats strong {
+  font-size: 18px;
+}
+
+.sidePanel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid #d9e0e8;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.panelTabs {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 7px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #edf0f5;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+}
+
+.panelTabs button {
+  min-height: 38px;
+  border: 1px solid #d7dfeb;
+  border-radius: 14px;
+  color: #475467;
+  background: linear-gradient(180deg, #fff, #f8fafc);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.panelTabs button.active {
+  border-color: #2563eb;
+  color: #1d4ed8;
+  background: linear-gradient(180deg, #eff6ff, #dbeafe);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.16);
+}
+
+.guidePanel {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.guideHero {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  min-height: 204px;
+  padding: 16px;
+  border: 1px solid #dbe7f5;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(20, 184, 166, 0.2), transparent 32%),
+    radial-gradient(circle at 78% 22%, rgba(59, 130, 246, 0.16), transparent 30%),
+    linear-gradient(145deg, #f8fbff 0%, #eef6ff 54%, #ffffff 100%);
+  box-shadow: 0 22px 54px rgba(15, 23, 42, 0.11);
+}
+
+.guideSpeech {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 15px;
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.1);
+}
+
+.guideSpeech::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 42px;
+  width: 16px;
+  height: 16px;
+  transform: rotate(45deg);
+  border-left: 1px solid #dbeafe;
+  border-bottom: 1px solid #dbeafe;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.guideSpeech h2 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.guideSpeech p {
+  color: #344054;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.avatarStage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 170px;
+  perspective: 700px;
+}
+
+.avatarPop {
+  animation: avatarEntrance 560ms cubic-bezier(0.2, 0.95, 0.2, 1.2);
+}
+
+.avatarShadow {
+  position: absolute;
+  bottom: 10px;
+  width: 92px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.16);
+  filter: blur(2px);
+  animation: shadowPulse 3s ease-in-out infinite;
+}
+
+.avatarModel {
+  position: relative;
+  width: 122px;
+  height: 150px;
+  transform-style: preserve-3d;
+  animation: avatarFloat 3s ease-in-out infinite;
+}
+
+.avatarHalo {
+  position: absolute;
+  left: 11px;
+  top: 4px;
+  width: 100px;
+  height: 112px;
+  border-radius: 44px;
+  background: linear-gradient(145deg, rgba(147, 197, 253, 0.42), rgba(45, 212, 191, 0.22));
+  filter: blur(1px);
+  transform: translateZ(-18px);
+}
+
+.avatarHead {
+  position: absolute;
+  left: 24px;
+  top: 24px;
+  width: 74px;
+  height: 72px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 28px 28px 30px 30px;
+  background: linear-gradient(145deg, #ffe8da, #ffd4c1 66%, #f3b89f);
+  box-shadow: inset -8px -8px 18px rgba(151, 67, 44, 0.11), 0 16px 28px rgba(37, 99, 235, 0.18);
+  transform: rotateY(-8deg);
+  z-index: 4;
+}
+
+.avatarHair {
+  position: absolute;
+  background: linear-gradient(145deg, #30476f, #161827);
+  box-shadow: inset 8px 8px 14px rgba(255, 255, 255, 0.08);
+}
+
+.hairBack {
+  left: 18px;
+  top: 12px;
+  width: 86px;
+  height: 86px;
+  border-radius: 34px 34px 36px 36px;
+  z-index: 2;
+}
+
+.avatarBeret {
+  position: absolute;
+  left: 29px;
+  top: 7px;
+  width: 72px;
+  height: 28px;
+  border-radius: 999px 999px 18px 22px;
+  background: linear-gradient(145deg, #2563eb, #22c55e);
+  box-shadow: inset 8px 8px 12px rgba(255, 255, 255, 0.18), 0 8px 14px rgba(15, 23, 42, 0.16);
+  transform: rotate(-8deg);
+  z-index: 7;
+}
+
+.hairBang {
+  top: -5px;
+  width: 38px;
+  height: 34px;
+  border-radius: 24px 10px 26px 8px;
+  z-index: 5;
+}
+
+.hairBang.left {
+  left: 7px;
+  transform: rotate(-22deg);
+}
+
+.hairBang.right {
+  right: 8px;
+  transform: rotate(20deg);
+}
+
+.avatarEye {
+  position: absolute;
+  top: 35px;
+  width: 10px;
+  height: 15px;
+  border-radius: 999px;
+  background: #172033;
+  box-shadow: inset 2px 2px 0 #fff;
+  animation: avatarBlink 4.5s infinite;
+}
+
+.avatarEye.left {
+  left: 20px;
+}
+
+.avatarEye.right {
+  right: 20px;
+}
+
+.avatarBlush {
+  position: absolute;
+  top: 52px;
+  width: 12px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(244, 114, 182, 0.32);
+}
+
+.avatarBlush.left {
+  left: 11px;
+}
+
+.avatarBlush.right {
+  right: 11px;
+}
+
+.avatarMouth {
+  position: absolute;
+  left: 33px;
+  top: 55px;
+  width: 12px;
+  height: 6px;
+  border-bottom: 2px solid #9f4a3a;
+  border-radius: 0 0 999px 999px;
+}
+
+.avatarEarpiece {
+  position: absolute;
+  top: 50px;
+  width: 10px;
+  height: 20px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #fff, #bfdbfe);
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  z-index: 6;
+}
+
+.avatarEarpiece.left {
+  left: 17px;
+}
+
+.avatarEarpiece.right {
+  right: 17px;
+}
+
+.avatarScarf {
+  position: absolute;
+  left: 38px;
+  top: 90px;
+  width: 48px;
+  height: 16px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ef4444, #f97316);
+  z-index: 5;
+  transform: rotate(-4deg);
+}
+
+.avatarBody {
+  position: absolute;
+  left: 27px;
+  top: 101px;
+  width: 68px;
+  height: 48px;
+  border-radius: 26px 26px 20px 20px;
+  background: linear-gradient(145deg, #155eef, #0f766e);
+  box-shadow: inset -9px -10px 18px rgba(15, 23, 42, 0.18), 0 14px 22px rgba(15, 23, 42, 0.18);
+  z-index: 3;
+}
+
+.avatarBadge {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: 10px auto;
+  border-radius: 50%;
+  color: #155eef;
+  background: #fff;
+  font-weight: 900;
+}
+
+.avatarArm {
+  position: absolute;
+  top: 109px;
+  width: 16px;
+  height: 46px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffe0d0, #f1b59c);
+  z-index: 2;
+}
+
+.avatarArm.left {
+  left: 15px;
+  transform: rotate(16deg);
+}
+
+.avatarArm.right {
+  right: 13px;
+  transform-origin: 50% 12%;
+  animation: avatarWave 2.4s ease-in-out infinite;
+}
+
+.guideActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.guideAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #d7dfeb;
+  border-radius: 15px;
+  color: #344054;
+  background: linear-gradient(180deg, #fff, #f8fafc);
+  font-weight: 800;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+}
+
+.primaryGuideAction {
+  grid-column: 1 / -1;
+  border: 0;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #0f766e);
+  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.22);
+}
+
+.guideAction:disabled {
+  cursor: not-allowed;
+  color: #fff;
+  background: #98a2b3;
+  box-shadow: none;
+}
+
+.guideAction:not(:disabled):hover,
+.panelTabs button:hover,
+.primaryButton:not(:disabled):hover,
+.secondaryButton:hover,
+.iconTextButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+}
+
+.guideDeck {
+  display: grid;
+  gap: 10px;
+}
+
+.aiResultCard,
+.compactSetup {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid #c7d2fe;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #eef2ff, #fff);
+}
+
+.coachHeader {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.routeRibbon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.routeRibbon span {
+  padding: 6px 8px;
+  border-radius: 999px;
+  color: #0f766e;
+  background: #ccfbf1;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.compactSetup label {
+  display: grid;
+  gap: 6px;
+}
+
+@keyframes avatarFloat {
+  0%, 100% {
+    transform: translateY(0) rotateY(-6deg);
+  }
+  50% {
+    transform: translateY(-8px) rotateY(8deg);
+  }
+}
+
+@keyframes shadowPulse {
+  0%, 100% {
+    transform: scaleX(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scaleX(0.82);
+    opacity: 0.45;
+  }
+}
+
+@keyframes avatarBlink {
+  0%, 92%, 100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+
+@keyframes avatarWave {
+  0%, 100% {
+    transform: rotate(-26deg);
+  }
+  50% {
+    transform: rotate(-54deg) translateY(-3px);
+  }
+}
+
+@keyframes avatarEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.82) rotateY(-26deg);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-5px) scale(1.04) rotateY(8deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateY(0);
+  }
+}
+
+.panelContent {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  overflow-y: auto;
+}
+
+.panelContent h2 {
+  font-size: 24px;
+}
+
+.panelContent h3 {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+
+.panelContent p {
+  line-height: 1.6;
+}
+
+.eyebrow {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.infoGrid div,
+.infoBlock,
+.taskCard,
+.memoryNote,
+.routeList div,
+.routeButton,
+.suggestion,
+.settingsStatus {
+  padding: 12px;
+  border: 1px solid #edf0f5;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.detailStack,
+.taskList {
+  display: grid;
+  gap: 10px;
+}
+
+.infoBlock {
+  display: grid;
+  gap: 6px;
+}
+
+.taskCard {
+  display: grid;
+  gap: 10px;
+}
+
+.aiSettingsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.aiSettingsGrid .fullWidth,
+.aiSettingsGrid .checkRow {
+  grid-column: 1 / -1;
+}
+
+.checkRow {
+  display: flex !important;
+  grid-template-columns: none !important;
+  gap: 8px !important;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.checkRow input {
+  width: 16px;
+  height: 16px;
+}
+
+.errorBox {
+  padding: 10px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #991b1b;
+  background: #fff1f2;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.taskCard > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.taskCard strong {
+  font-size: 15px;
+}
+
+.taskMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.taskMeta span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #eef2f6;
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.chipRow span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #155eef;
+  background: #eff6ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.routeButton {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  border: 1px solid #edf0f5;
+  text-align: left;
+}
+
+.routeButton:hover,
+.secondaryButton:hover,
+.iconTextButton:hover,
+.imageStrip button:hover {
+  background: #f2f5f9;
+}
+
+.infoGrid strong,
+.infoGrid span {
+  display: block;
+}
+
+textarea,
+.panelContent label {
+  width: 100%;
+}
+
+.panelContent label {
+  display: grid;
+  gap: 6px;
+}
+
+.panelContent label > span {
+  color: #344054;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.panelContent label input,
+textarea {
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #d0d7e2;
+  border-radius: 10px;
+  outline: 0;
+  color: #172033;
+  background: #fff;
+}
+
+textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.panelContent label input:focus,
+textarea:focus,
+.searchBox:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.imageStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.imageStrip img {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.imageStrip button {
+  padding: 0 12px;
+  border: 1px solid #d0d7e2;
+  color: #344054;
+  background: #fff;
+}
+
+.routeList {
+  display: grid;
+  gap: 10px;
+}
+
+.routeList strong,
+.routeList span,
+.suggestion strong,
+.suggestion span {
+  display: block;
+}
+
+.settingsStatus {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.marker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transform: translateY(-4px);
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+  user-select: none;
+}
+
+.marker span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.24);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.marker strong {
+  padding: 4px 7px;
+  border-radius: 999px;
+  color: #172033;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
+  font-size: 12px;
+}
+
+.marker-locked span {
+  background: #667085;
+}
+
+.marker-planned span {
+  background: #f59e0b;
+}
+
+.marker-learned span {
+  background: #0ea5e9;
+}
+
+.marker-visited span,
+.marker-memory span {
+  background: #16a34a;
+}
+
+.marker-deep span {
+  background: #9333ea;
+}
+
+.marker.selected span {
+  width: 34px;
+  height: 34px;
+  background: #2563eb;
+}
+
+@media (max-width: 1180px) {
+  .appShell {
+    grid-template-columns: minmax(0, 1fr) 390px;
+  }
+
+  .topBar {
+    grid-template-columns: 230px minmax(180px, 1fr) auto;
+  }
+
+  .anchorBadge {
+    display: none;
+  }
+}
