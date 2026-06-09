@@ -199,7 +199,7 @@ export class LocalDatabase {
     const checkins = settings.allowFootprints ? this.listCheckins().slice(0, 20) : [];
     const routes = this.listRoutes().slice(0, 10);
     return {
-      workAnchor: "字节跳动大钟寺工区",
+      workAnchor: "以用户提示中的当前工作锚点为准",
       privacyScope: {
         checkins: settings.allowFootprints,
         notes: settings.allowNotes,

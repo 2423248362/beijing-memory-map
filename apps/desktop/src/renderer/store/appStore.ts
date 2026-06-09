@@ -15,8 +15,8 @@ interface AppState {
   load: () => Promise<void>;
   selectPoint: (point: GeoPoint, name?: string) => void;
   chooseImages: () => Promise<string[]>;
-  createCheckin: (input: CreateCheckinInput) => Promise<void>;
-  createRoute: (input: CreateRouteInput) => Promise<void>;
+  createCheckin: (input: CreateCheckinInput) => Promise<Checkin>;
+  createRoute: (input: CreateRouteInput) => Promise<ExplorationRoute>;
   saveAiSettings: (input: SaveAiSettingsInput) => Promise<void>;
   saveMapSettings: (input: SaveMapSettingsInput) => Promise<void>;
   generateSuggestion: (prompt: string) => Promise<void>;
@@ -40,13 +40,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   chooseImages: () => getApi().chooseImages(),
   createCheckin: async (input) => {
     const api = getApi();
-    await api.createCheckin(input);
+    const checkin = await api.createCheckin(input);
     set({ checkins: await api.listCheckins() });
+    return checkin;
   },
   createRoute: async (input) => {
     const api = getApi();
-    await api.createRoute(input);
+    const route = await api.createRoute(input);
     set({ routes: await api.listRoutes() });
+    return route;
   },
   saveAiSettings: async (input) => {
     set({ aiSettings: await getApi().saveAiSettings(input) });
@@ -174,7 +176,7 @@ const previewApi: AppApi = {
         messages: [
           {
             role: "system",
-            content: "你是北京记忆地图的城市教练。输出 JSON，字段为 title、summary、stops。"
+            content: "你是北京记忆地图的俏皮城市教练，像一个很会带路的北京朋友。输出 JSON，字段为 title、summary、stops。summary 要可爱、有画面感，但不要幼稚、不要堆表情。"
           },
           { role: "user", content: input.prompt }
         ],

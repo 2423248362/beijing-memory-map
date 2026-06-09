@@ -76,7 +76,7 @@ async function generateSuggestion(input: GenerateSuggestionInput) {
   const settings = database.getAiSettings();
   const apiKey = database.getAiSecret();
   if (!apiKey) {
-    throw new Error("请先在 AI 面板配置 API Key。");
+    throw new Error("请先在设置里配置 AI API Key。");
   }
 
   const context = database.buildLocalAiContext();
@@ -92,7 +92,7 @@ async function generateSuggestion(input: GenerateSuggestionInput) {
         {
           role: "system",
           content:
-            "你是北京记忆地图的本地优先探索助手。基于用户授权的本地上下文，给出简洁、可执行、从大钟寺出发的北京探索建议。输出 JSON，字段为 title、summary、stops。"
+            "你是北京记忆地图的俏皮城市教练，像一个很会带路的北京朋友。基于用户授权的本地上下文和用户提示里的工作锚点，给出简洁、可执行的北京探索建议。输出 JSON，字段为 title、summary、stops。summary 要可爱、有画面感，但不要幼稚、不要堆表情。"
         },
         {
           role: "user",

@@ -5,6 +5,7 @@ import {
   Camera,
   CheckCircle2,
   ClipboardList,
+  Crosshair,
   KeyRound,
   MapPin,
   Navigation,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import type {
   AiSettings,
+  Anchor,
   Checkin,
   CityTask,
   ExplorationRoute,
@@ -38,36 +40,106 @@ declare global {
 
 type PlaceSource = "knowledge" | "memory";
 type Place = LifeCircle & { source: PlaceSource; checkin?: Checkin };
-type PanelTab = "guide" | "tasks" | "checkin" | "route" | "progress" | "settings";
+type PanelTab = "today" | "place" | "route" | "memory" | "progress" | "settings";
 type DraftCheckin = { point: GeoPoint; name: string; district: string; address: string };
+type SaveAnchorInput = { name: string; address: string; lng: number; lat: number };
+type DirectionProgress = {
+  id: string;
+  label: string;
+  summary: string;
+  placeIds: string[];
+  routeThemes: string[];
+  score: number;
+  checkinCount: number;
+  routeHit: boolean;
+  complete: boolean;
+};
+
+const WORK_ANCHOR_STORAGE_KEY = "beijing-memory-map.workAnchor";
 
 export function App() {
-  const { checkins, routes, aiSettings, aiSuggestion, aiError, mapSettings, loading, load, saveAiSettings, saveMapSettings } = useAppStore();
+  const {
+    checkins,
+    routes,
+    aiSettings,
+    aiSuggestion,
+    aiError,
+    mapSettings,
+    loading,
+    load,
+    createRoute,
+    saveAiSettings,
+    saveMapSettings
+  } = useAppStore();
   const [selectedPlaceId, setSelectedPlaceId] = useState("dazhongsi");
   const [draftCheckin, setDraftCheckin] = useState<DraftCheckin | undefined>();
-  const [panelTab, setPanelTab] = useState<PanelTab>("guide");
-  const [guidePopKey, setGuidePopKey] = useState(0);
+  const [panelTab, setPanelTab] = useState<PanelTab>("today");
   const [query, setQuery] = useState("");
   const [activeRouteId, setActiveRouteId] = useState<string | undefined>();
+  const [selectedTaskId, setSelectedTaskId] = useState<string | undefined>();
+  const [savedNotice, setSavedNotice] = useState("");
+  const [currentAnchor, setCurrentAnchor] = useState<Anchor>(() => loadWorkAnchor());
   const places = useMemo(() => mergePlaces(checkins), [checkins]);
   const selectedPlace = places.find((place) => place.id === selectedPlaceId) ?? places[0];
   const activeRoute = routes.find((route) => route.id === activeRouteId) ?? routes[0] ?? templateToRoute(routeTemplates[0]);
+  const selectedTask = cityTasks.find((task) => task.id === selectedTaskId) ?? findTaskForPlace(selectedPlace.id, cityTasks);
+  const recommendedTemplate = findRouteTemplateForPlace(selectedPlace.id, routeTemplates);
   const searchResults = useMemo(() => buildSearchResults(query, places, cityTasks, routeTemplates), [places, query]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  const saveWorkAnchor = useCallback((input: SaveAnchorInput) => {
+    const nextAnchor: Anchor = {
+      id: "custom-work-anchor",
+      type: "work",
+      name: input.name.trim() || workAnchor.name,
+      address: input.address.trim() || workAnchor.address,
+      point: {
+        lng: Number.isFinite(input.lng) ? input.lng : workAnchor.point.lng,
+        lat: Number.isFinite(input.lat) ? input.lat : workAnchor.point.lat
+      }
+    };
+    setCurrentAnchor(nextAnchor);
+    localStorage.setItem(WORK_ANCHOR_STORAGE_KEY, JSON.stringify(nextAnchor));
+    setSavedNotice(`已更新工作锚点：${nextAnchor.name}`);
+  }, []);
+
   const selectPlace = useCallback((place: Place) => {
     setSelectedPlaceId(place.id);
+    setSelectedTaskId(findTaskForPlace(place.id, cityTasks).id);
     setDraftCheckin(undefined);
-    setPanelTab("guide");
-    setGuidePopKey((value) => value + 1);
+    setSavedNotice("");
+    setPanelTab("place");
   }, []);
 
   const selectDraftPoint = useCallback((draft: DraftCheckin) => {
     setDraftCheckin(draft);
-    setPanelTab("checkin");
+    setSavedNotice("");
+    setPanelTab("memory");
+  }, []);
+
+  const createRouteToPlace = useCallback(async (place: Place) => {
+    const coach = buildPlaceCoach(place, currentAnchor);
+    const route = await createRoute({
+      title: `${currentAnchor.name} -> ${place.name}`,
+      status: "planned",
+      note: `围绕 ${place.name} 建立一条北京空间认知路线。`,
+      stops: [
+        { placeName: currentAnchor.name, point: currentAnchor.point, note: "出发锚点" },
+        { placeName: place.name, point: place.point, note: coach.nextAction }
+      ]
+    });
+    setActiveRouteId(route.id);
+    setSavedNotice(`已创建路线：${route.title}`);
+    setPanelTab("route");
+    return route;
+  }, [createRoute, currentAnchor]);
+
+  const selectRoute = useCallback((routeId: string) => {
+    setActiveRouteId(routeId);
+    setSavedNotice("");
   }, []);
 
   return (
@@ -92,7 +164,14 @@ export function App() {
                     onClick={() => {
                       setQuery("");
                       if (item.kind === "place") selectPlace(item.payload as Place);
-                      if (item.kind === "task") setPanelTab("tasks");
+                      if (item.kind === "task") {
+                        const task = item.payload as CityTask;
+                        setSelectedTaskId(task.id);
+                        const firstTarget = places.find((place) => task.targets.includes(place.id));
+                        if (firstTarget) setSelectedPlaceId(firstTarget.id);
+                        setSavedNotice("");
+                        setPanelTab("today");
+                      }
                       if (item.kind === "route") setPanelTab("route");
                     }}
                   >
@@ -109,7 +188,7 @@ export function App() {
         <div className="anchorBadge">
           <Navigation size={16} />
           <span>工作锚点</span>
-          <strong>{workAnchor.name}</strong>
+          <strong>{currentAnchor.name}</strong>
         </div>
         <button className="iconTextButton" onClick={() => setPanelTab("settings")}>
           <Settings size={17} />
@@ -120,6 +199,7 @@ export function App() {
       <section className="mapArea">
         <AmapView
           mapSettings={mapSettings}
+          anchor={currentAnchor}
           places={places}
           checkins={checkins}
           activeRoute={activeRoute}
@@ -139,33 +219,79 @@ export function App() {
 
       <aside className="sidePanel">
         <PanelTabs active={panelTab} onChange={setPanelTab} />
-        {panelTab === "guide" && (
+        {panelTab === "today" && (
           <GuidePanel
-            popKey={guidePopKey}
             place={selectedPlace}
+            tasks={cityTasks}
+            templates={routeTemplates}
+            selectedTask={selectedTask}
+            recommendedTemplate={recommendedTemplate}
+            anchor={currentAnchor}
             settings={aiSettings}
             suggestion={aiSuggestion}
             error={aiError}
             loading={loading}
-            onSaveSettings={saveAiSettings}
-            onOpenCheckin={() => setPanelTab("checkin")}
-            onOpenTasks={() => setPanelTab("tasks")}
+            onCreateRoute={() => createRouteToPlace(selectedPlace)}
+            onOpenPlace={() => setPanelTab("place")}
+            onOpenMemory={() => setPanelTab("memory")}
+            onOpenSettings={() => setPanelTab("settings")}
             onOpenRoutes={() => setPanelTab("route")}
           />
         )}
-        {panelTab === "tasks" && <TaskPanel tasks={cityTasks} places={places} onSelectPlace={selectPlace} />}
-        {panelTab === "checkin" && <CheckinPanel place={selectedPlace} draftCheckin={draftCheckin} />}
+        {panelTab === "place" && (
+          <DetailPanel
+            place={selectedPlace}
+            onCreateRoute={() => createRouteToPlace(selectedPlace)}
+            onOpenMemory={() => setPanelTab("memory")}
+          />
+        )}
+        {panelTab === "memory" && (
+          <CheckinPanel
+            place={selectedPlace}
+            draftCheckin={draftCheckin}
+            savedNotice={savedNotice}
+            onSaved={(checkin) => {
+              setSavedNotice(`已保存记忆：${checkin.placeName}`);
+              setDraftCheckin(undefined);
+            }}
+          />
+        )}
         {panelTab === "route" && (
           <RoutePanel
             place={selectedPlace}
+            recommendedTemplate={recommendedTemplate}
+            anchor={currentAnchor}
             templates={routeTemplates}
             places={places}
             routes={routes}
-            onSelectRoute={(routeId) => setActiveRouteId(routeId)}
+            activeRouteId={activeRoute.id}
+            savedNotice={savedNotice}
+            onSelectRoute={selectRoute}
+            onRouteCreated={(route) => {
+              setActiveRouteId(route.id);
+              setSavedNotice(`已创建路线：${route.title}`);
+            }}
           />
         )}
-        {panelTab === "progress" && <ProgressPanel checkins={checkins} routes={routes} places={places} />}
-        {panelTab === "settings" && <MapSettingsPanel settings={mapSettings} onSave={saveMapSettings} />}
+        {panelTab === "progress" && (
+          <ProgressPanel
+            checkins={checkins}
+            routes={routes}
+            places={places}
+            onSelectPlace={selectPlace}
+            onOpenRoutes={() => setPanelTab("route")}
+          />
+        )}
+        {panelTab === "settings" && (
+          <MapSettingsPanel
+            mapSettings={mapSettings}
+            aiSettings={aiSettings}
+            anchor={currentAnchor}
+            onSaveMap={saveMapSettings}
+            onSaveAi={saveAiSettings}
+            onSaveAnchor={saveWorkAnchor}
+          />
+        )}
       </aside>
     </main>
   );
@@ -173,6 +299,7 @@ export function App() {
 
 function AmapView({
   mapSettings,
+  anchor,
   places,
   checkins,
   activeRoute,
@@ -182,6 +309,7 @@ function AmapView({
   onOpenSettings
 }: {
   mapSettings?: MapSettings;
+  anchor: Anchor;
   places: Place[];
   checkins: Checkin[];
   activeRoute?: ExplorationRoute;
@@ -215,7 +343,7 @@ function AmapView({
         amapRef.current = AMap;
         geocoderRef.current = new AMap.Geocoder({ city: "010" });
         const map = new AMap.Map(containerRef.current, {
-          center: [workAnchor.point.lng, workAnchor.point.lat],
+          center: [anchor.point.lng, anchor.point.lat],
           zoom: 13,
           viewMode: "2D",
           resizeEnable: true
@@ -242,7 +370,12 @@ function AmapView({
       amapRef.current = null;
       setMapReady(false);
     };
-  }, [mapSettings?.amapKey, mapSettings?.amapSecurityCode, onSelectDraftPoint, ready]);
+  }, [anchor.point.lat, anchor.point.lng, mapSettings?.amapKey, mapSettings?.amapSecurityCode, onSelectDraftPoint, ready]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    mapRef.current.setCenter?.([anchor.point.lng, anchor.point.lat]);
+  }, [anchor.point.lat, anchor.point.lng, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -316,10 +449,10 @@ function AmapView({
 
 function PanelTabs({ active, onChange }: { active: PanelTab; onChange: (tab: PanelTab) => void }) {
   const tabs: Array<[PanelTab, string]> = [
-    ["guide", "导览"],
-    ["tasks", "任务"],
-    ["checkin", "打卡"],
+    ["today", "今日"],
+    ["place", "地点"],
     ["route", "路线"],
+    ["memory", "记忆"],
     ["progress", "进度"],
     ["settings", "设置"]
   ];
@@ -335,83 +468,113 @@ function PanelTabs({ active, onChange }: { active: PanelTab; onChange: (tab: Pan
 }
 
 function GuidePanel({
-  popKey,
   place,
+  tasks,
+  templates,
+  selectedTask,
+  recommendedTemplate,
+  anchor,
   settings,
   suggestion,
   error,
   loading,
-  onSaveSettings,
-  onOpenCheckin,
-  onOpenTasks,
+  onCreateRoute,
+  onOpenPlace,
+  onOpenMemory,
+  onOpenSettings,
   onOpenRoutes
 }: {
-  popKey: number;
   place: Place;
+  tasks: CityTask[];
+  templates: RouteTemplate[];
+  selectedTask: CityTask;
+  recommendedTemplate: RouteTemplate;
+  anchor: Anchor;
   settings?: AiSettings;
   suggestion?: { title: string; summary: string; stops: string[] };
   error?: string;
   loading: boolean;
-  onSaveSettings: (input: SaveAiSettingsInput) => Promise<void>;
-  onOpenCheckin: () => void;
-  onOpenTasks: () => void;
+  onCreateRoute: () => Promise<ExplorationRoute>;
+  onOpenPlace: () => void;
+  onOpenMemory: () => void;
+  onOpenSettings: () => void;
   onOpenRoutes: () => void;
 }) {
-  const { generateSuggestion, createRoute } = useAppStore();
-  const coach = buildPlaceCoach(place);
+  const { generateSuggestion } = useAppStore();
+  const coach = buildPlaceCoach(place, anchor);
   const hasKey = Boolean(settings?.apiKeySet);
-  const prompt = buildInteractiveGuidePrompt(place);
+  const prompt = buildInteractiveGuidePrompt(place, anchor);
+  const todayTask = selectedTask ?? tasks[0];
+  const recommendedRoute = recommendedTemplate ?? templates[0];
 
   return (
     <section className="guidePanel">
       <div className="guideHero">
-        <AnimeGuideAvatar popKey={popKey} />
+        <div className="guideStamp">
+          <span>01</span>
+          <strong>今日认知</strong>
+        </div>
         <div className="guideSpeech">
-          <span className="eyebrow">城市导游 · 当前地点</span>
+          <span className="eyebrow">从 {anchor.name} 出发</span>
           <h2>{place.name}</h2>
           <p>{coach.intro}</p>
         </div>
       </div>
 
+      <div className="todayBrief">
+        <InfoBlock title="今天先理解" text={todayTask.cognitiveGoal} />
+        <InfoBlock title="推荐路线" text={`${recommendedRoute.title} · ${recommendedRoute.recommendedTime}`} />
+      </div>
+
       <div className="guideActions">
         <button className="guideAction primaryGuideAction" disabled={!hasKey || loading} onClick={() => generateSuggestion(prompt)}>
-          <Sparkles size={17} /> {loading ? "导游思考中" : "让导游讲解"}
+          <Sparkles size={17} /> {loading ? "生成中" : "生成城市建议"}
         </button>
         <button
           className="guideAction"
-          onClick={() =>
-            createRoute({
-              title: `导游路线：大钟寺 -> ${place.name}`,
-              status: "planned",
-              note: `由互动导游围绕 ${place.name} 创建的探索路线。`,
-              stops: [
-                { placeName: workAnchor.name, point: workAnchor.point, note: "从你的工作锚点出发" },
-                { placeName: place.name, point: place.point, note: coach.nextAction }
-              ]
-            }).then(onOpenRoutes)
-          }
+          onClick={() => onCreateRoute().then(onOpenRoutes)}
         >
           <Route size={16} /> 规划路线
         </button>
-        <button className="guideAction" onClick={onOpenCheckin}>
-          <Save size={16} /> 去打卡
+        <button className="guideAction" onClick={onOpenPlace}>
+          <MapPin size={16} /> 地点档案
         </button>
-        <button className="guideAction" onClick={onOpenTasks}>
-          <Target size={16} /> 匹配任务
+        <button className="guideAction" onClick={onOpenMemory}>
+          <Save size={16} /> 记录记忆
         </button>
       </div>
 
       {!hasKey && (
-        <CompactAiSetup settings={settings} onSaveSettings={onSaveSettings} />
+        <div className="settingsStatus">
+          <KeyRound size={17} />
+          <span>AI Key 未配置。你仍可查看地点、规划路线和记录记忆；需要生成城市建议时，请到设置里接入 AI。</span>
+          <button className="secondaryButton" onClick={onOpenSettings}>打开 AI 设置</button>
+        </div>
       )}
 
       {error && <div className="errorBox">{error}</div>}
 
       <div className="guideDeck">
         <InfoBlock title="它和你的北京有什么关系" text={coach.whyNow} />
-        <InfoBlock title="第一次去别只拍照，重点看这些" text={coach.observe} />
-        <InfoBlock title="导游给你的下一步" text={coach.nextAction} />
+        <InfoBlock title="第一次去重点看这些" text={coach.observe} />
+        <InfoBlock title="下一步行动" text={coach.nextAction} />
       </div>
+
+      <article className="taskCard featuredTask">
+        <div>
+          <span>{todayTask.stage} · {todayTask.recommendedTime}</span>
+          <strong>{todayTask.title}</strong>
+        </div>
+        <p>{todayTask.completion}</p>
+        <div className="taskMeta">
+          <span>{todayTask.estimatedMinutes} 分钟</span>
+          <span>解锁 {todayTask.unlocks.slice(0, 2).join(" / ")}</span>
+        </div>
+        <div className="routeStops">
+          <span>起点：{todayTask.start}</span>
+          <span>目标点 {todayTask.targets.length} 个</span>
+        </div>
+      </article>
 
       {suggestion && (
         <div className="aiResultCard">
@@ -433,44 +596,15 @@ function GuidePanel({
   );
 }
 
-function AnimeGuideAvatar({ popKey }: { popKey: number }) {
-  return (
-    <div key={popKey} className="avatarStage avatarPop" aria-hidden="true">
-      <div className="avatarShadow" />
-      <div className="avatarModel">
-        <div className="avatarHalo" />
-        <div className="avatarHair hairBack" />
-        <div className="avatarBeret" />
-        <div className="avatarHead">
-          <div className="avatarHair hairBang left" />
-          <div className="avatarHair hairBang right" />
-          <div className="avatarEye left" />
-          <div className="avatarEye right" />
-          <div className="avatarBlush left" />
-          <div className="avatarBlush right" />
-          <div className="avatarMouth" />
-        </div>
-        <div className="avatarEarpiece left" />
-        <div className="avatarEarpiece right" />
-        <div className="avatarScarf" />
-        <div className="avatarBody">
-          <div className="avatarBadge">京</div>
-        </div>
-        <div className="avatarArm left" />
-        <div className="avatarArm right" />
-      </div>
-    </div>
-  );
-}
-
 function CompactAiSetup({ settings, onSaveSettings }: { settings?: AiSettings; onSaveSettings: (input: SaveAiSettingsInput) => Promise<void> }) {
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState(settings?.baseUrl ?? "https://api.longcat.chat/openai/v1");
   const [model, setModel] = useState(settings?.model ?? "LongCat-2.0-Preview");
+  const hasKey = Boolean(settings?.apiKeySet);
 
   return (
     <div className="compactSetup">
-      <strong>先接入 AI，导游才会开口</strong>
+      <strong>{hasKey ? "AI 已接入，可在这里更新配置" : "接入 AI 后可生成城市建议"}</strong>
       <label>
         <span>Base URL</span>
         <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} />
@@ -481,23 +615,31 @@ function CompactAiSetup({ settings, onSaveSettings }: { settings?: AiSettings; o
       </label>
       <label>
         <span>API Key</span>
-        <input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="请输入 API Key" />
+        <input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={hasKey ? "已配置，留空则不覆盖" : "请输入 API Key"} />
       </label>
       <button
         className="secondaryButton"
         onClick={() => onSaveSettings({ baseUrl, model, apiKey, allowFootprints: true, allowNotes: true, allowImages: false })}
       >
-        <KeyRound size={16} /> 保存 AI 配置
+        <KeyRound size={16} /> {hasKey ? "更新 AI 配置" : "保存 AI 配置"}
       </button>
     </div>
   );
 }
 
-function DetailPanel({ place }: { place: Place }) {
+function DetailPanel({
+  place,
+  onCreateRoute,
+  onOpenMemory
+}: {
+  place: Place;
+  onCreateRoute: () => Promise<ExplorationRoute>;
+  onOpenMemory: () => void;
+}) {
   const card = lifeCircleCards[place.id];
   return (
     <section className="panelContent">
-      <span className="eyebrow">{place.district} / {stateText(place.unlockState)}</span>
+      <span className="eyebrow">地点档案 / {place.district} / {stateText(place.unlockState)}</span>
       <h2>{place.name}</h2>
       <p>{card?.cognitiveMeaning ?? place.summary}</p>
       <div className="detailStack">
@@ -505,6 +647,14 @@ function DetailPanel({ place }: { place: Place }) {
         <InfoBlock title="适合什么时候去" text={card?.bestFor ?? "适合在路线或任务中进一步探索。"} />
         <InfoBlock title="适合和谁去" text={card?.companion ?? "自己或朋友都可以。"} />
         <InfoBlock title="推荐行动" text={card?.recommendedAction ?? "保存一次打卡，或把它加入一条路线。"} />
+      </div>
+      <div className="ctaRow">
+        <button className="primaryButton" onClick={onCreateRoute}>
+          <Route size={17} /> 创建到这里的路线
+        </button>
+        <button className="secondaryButton" onClick={onOpenMemory}>
+          <Save size={16} /> 记录这里的记忆
+        </button>
       </div>
       <div className="chipRow">
         {(card?.concepts ?? ["个人记忆"]).map((concept) => <span key={concept}>{concept}</span>)}
@@ -555,7 +705,17 @@ function TaskPanel({ tasks, places, onSelectPlace }: { tasks: CityTask[]; places
   );
 }
 
-function CheckinPanel({ place, draftCheckin }: { place: Place; draftCheckin?: DraftCheckin }) {
+function CheckinPanel({
+  place,
+  draftCheckin,
+  savedNotice,
+  onSaved
+}: {
+  place: Place;
+  draftCheckin?: DraftCheckin;
+  savedNotice: string;
+  onSaved: (checkin: Checkin) => void;
+}) {
   const { createCheckin, chooseImages } = useAppStore();
   const [note, setNote] = useState("");
   const [images, setImages] = useState<string[]>([]);
@@ -568,9 +728,10 @@ function CheckinPanel({ place, draftCheckin }: { place: Place; draftCheckin?: Dr
 
   return (
     <section className="panelContent">
-      <span className="eyebrow">{draftCheckin ? "地图选点草稿" : "地点打卡"}</span>
+      <span className="eyebrow">{draftCheckin ? "地图选点草稿" : "记忆档案"}</span>
       <h2>记录一次北京记忆</h2>
       <p>位置：{target.name}（{target.point.lng.toFixed(4)}, {target.point.lat.toFixed(4)}）</p>
+      {savedNotice && <div className="successBox">{savedNotice}</div>}
       <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="写下这次探索的空间感、同行人或下次想补看的地方" />
       <div className="imageStrip">
         {images.map((image) => <img key={image} src={toFileUrl(image)} alt="打卡图片" />)}
@@ -579,7 +740,7 @@ function CheckinPanel({ place, draftCheckin }: { place: Place; draftCheckin?: Dr
       <button
         className="primaryButton"
         onClick={async () => {
-          await createCheckin({
+          const checkin = await createCheckin({
             placeName: target.name,
             district: target.district,
             address: target.address,
@@ -591,6 +752,7 @@ function CheckinPanel({ place, draftCheckin }: { place: Place; draftCheckin?: Dr
           });
           setImages([]);
           setNote("");
+          onSaved(checkin);
         }}
       >
         <Save size={17} /> 保存打卡
@@ -601,16 +763,26 @@ function CheckinPanel({ place, draftCheckin }: { place: Place; draftCheckin?: Dr
 
 function RoutePanel({
   place,
+  recommendedTemplate,
+  anchor,
   templates,
   places,
   routes,
-  onSelectRoute
+  activeRouteId,
+  savedNotice,
+  onSelectRoute,
+  onRouteCreated
 }: {
   place: Place;
+  recommendedTemplate: RouteTemplate;
+  anchor: Anchor;
   templates: RouteTemplate[];
   places: Place[];
   routes: ExplorationRoute[];
+  activeRouteId?: string;
+  savedNotice: string;
   onSelectRoute: (routeId: string) => void;
+  onRouteCreated: (route: ExplorationRoute) => void;
 }) {
   const { createRoute } = useAppStore();
   const [status] = useState<RouteStatus>("planned");
@@ -624,36 +796,48 @@ function RoutePanel({
         note: item!.summary
       }));
     if (stops.length < 2) return;
-    await createRoute({ title: template.title, status, note: template.cognitiveGoal, stops });
+    const route = await createRoute({ title: template.title, status, note: template.cognitiveGoal, stops });
+    onRouteCreated(route);
+  };
+  const createCurrentRoute = async () => {
+    const route = await createRoute({
+      title: `${anchor.name} -> ${place.name}`,
+      status,
+      note: `围绕 ${place.name} 建立一条北京空间认知路线。`,
+      stops: [
+        { placeName: anchor.name, point: anchor.point, note: "出发锚点" },
+        { placeName: place.name, point: place.point, note: place.summary }
+      ]
+    });
+    onRouteCreated(route);
   };
 
   return (
     <section className="panelContent">
-      <span className="eyebrow">主题路线 / 城市学习路径</span>
-      <h2>从大钟寺出发规划路线</h2>
+      <span className="eyebrow">路线学习 / 城市骨架</span>
+      <h2>从 {anchor.name} 出发</h2>
       <p>当前地点：{place.name}。路线不是简单连线，而是一个认知主题。</p>
-      <button
-        className="primaryButton"
-        onClick={() =>
-          createRoute({
-            title: `大钟寺 -> ${place.name}`,
-            status,
-            note: `围绕 ${place.name} 建立一条北京空间认知路线。`,
-            stops: [
-              { placeName: workAnchor.name, point: workAnchor.point, note: "出发锚点" },
-              { placeName: place.name, point: place.point, note: place.summary }
-            ]
-          })
-        }
-      >
-        <Route size={17} /> 生成到当前地点的路线
-      </button>
+      {savedNotice && <div className="successBox">{savedNotice}</div>}
+      <div className="ctaRow">
+        <button className="primaryButton" onClick={createCurrentRoute}>
+          <Route size={17} /> 生成到当前地点的路线
+        </button>
+        <button className="secondaryButton" onClick={() => createFromTemplate(recommendedTemplate)}>
+          <ClipboardList size={16} /> 使用推荐模板
+        </button>
+      </div>
       <div className="routeList">
         {templates.map((template) => (
           <div key={template.id}>
             <strong>{template.title}</strong>
-            <span>{template.theme} · {template.recommendedTime}</span>
+            <span>{template.theme} · {template.recommendedTime} · {template.stopIds.length} 站</span>
             <p>{template.cognitiveGoal}</p>
+            <div className="routeStops">
+              {template.stopIds
+                .map((id) => places.find((item) => item.id === id)?.name)
+                .filter(Boolean)
+                .map((name) => <span key={name}>{name}</span>)}
+            </div>
             <button className="secondaryButton" onClick={() => createFromTemplate(template)}>
               <ClipboardList size={16} /> 使用模板
             </button>
@@ -662,22 +846,47 @@ function RoutePanel({
       </div>
       <h3>已创建路线</h3>
       <div className="routeList">
-        {routes.slice(0, 5).map((route) => (
-          <button key={route.id} className="routeButton" onClick={() => onSelectRoute(route.id)}>
-            <strong>{route.title}</strong>
-            <span>{route.status} · {route.stops.map((stop) => stop.placeName).join(" -> ")}</span>
-          </button>
-        ))}
+        {routes.length ? (
+          routes.slice(0, 5).map((route) => (
+            <button
+              key={route.id}
+              className={`routeButton${route.id === activeRouteId ? " active" : ""}`}
+              onClick={() => onSelectRoute(route.id)}
+            >
+              <strong>{route.title}</strong>
+              <span>{route.status} · {route.stops.map((stop) => stop.placeName).join(" -> ")}</span>
+            </button>
+          ))
+        ) : (
+          <div className="emptyPanel">
+            <strong>还没有创建路线</strong>
+            <p>先使用推荐模板，建立第一条能落到地图上的城市学习路径。</p>
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
-function ProgressPanel({ checkins, routes, places }: { checkins: Checkin[]; routes: ExplorationRoute[]; places: Place[] }) {
+function ProgressPanel({
+  checkins,
+  routes,
+  places,
+  onSelectPlace,
+  onOpenRoutes
+}: {
+  checkins: Checkin[];
+  routes: ExplorationRoute[];
+  places: Place[];
+  onSelectPlace: (place: Place) => void;
+  onOpenRoutes: () => void;
+}) {
   const visitedDistricts = new Set(checkins.map((item) => item.district));
   const completedRoutes = routes.filter((route) => route.status === "completed").length;
   const learnedPlaces = places.filter((place) => place.unlockState === "learned" || place.unlockState === "visited" || place.unlockState === "deep").length;
-  const gaps = ["朝阳区", "东城区", "西城区", "丰台区", "通州区", "大兴区"].filter((district) => !visitedDistricts.has(district));
+  const directionProgress = buildDirectionProgress(checkins, routes, places);
+  const nextGap = getNextDirectionGap(directionProgress);
+  const nextPlace = nextGap ? places.find((place) => nextGap.placeIds.includes(place.id)) : undefined;
   return (
     <section className="panelContent">
       <span className="eyebrow">我的北京进度</span>
@@ -688,138 +897,132 @@ function ProgressPanel({ checkins, routes, places }: { checkins: Checkin[]; rout
         <Metric label="完成路线" value={String(completedRoutes)} />
         <Metric label="已理解点位" value={String(learnedPlaces)} />
       </div>
-      <InfoBlock title="已经熟悉的区域" text={visitedDistricts.size ? Array.from(visitedDistricts).join("、") : "还没有形成个人打卡区域，先从大钟寺或知春路开始。"} />
-      <InfoBlock title="建议补齐方向" text={gaps.length ? gaps.slice(0, 4).join("、") : "核心城区方向已经有记录，可以开始做复盘。"} />
-      <div className="chipRow">
-        {["海淀知识线", "老城文化线", "朝阳社交线", "南城更新线"].map((item) => <span key={item}>{item}</span>)}
+      <InfoBlock title="已经熟悉的区域" text={visitedDistricts.size ? Array.from(visitedDistricts).join("、") : "还没有形成个人打卡区域，先从工作锚点或知春路开始。"} />
+      <div className="directionList">
+        {directionProgress.map((direction) => (
+          <article key={direction.id} className={`directionCard ${direction.complete ? "complete" : ""}`}>
+            <div>
+              <strong>{direction.label}</strong>
+              <span>{direction.routeHit ? "已有路线" : "待建路线"} · {direction.checkinCount} 条记忆</span>
+            </div>
+            <div className="directionBar" aria-label={`${direction.score}%`}>
+              <span style={{ width: `${direction.score}%` }} />
+            </div>
+            <p>{direction.summary}</p>
+          </article>
+        ))}
+      </div>
+      <InfoBlock
+        title="建议补齐方向"
+        text={nextGap ? `${nextGap.label}：${nextGap.summary}` : "核心方向都有了初步记录，可以开始做一次复盘。"}
+      />
+      <div className="ctaRow">
+        {nextPlace && (
+          <button className="primaryButton" onClick={() => onSelectPlace(nextPlace)}>
+            <MapPin size={17} /> 查看下一地点
+          </button>
+        )}
+        <button className="secondaryButton" onClick={onOpenRoutes}>
+          <Route size={16} /> 查看路线建议
+        </button>
       </div>
     </section>
   );
 }
 
-function AiPanel({
-  place,
-  settings,
-  suggestion,
-  error,
-  loading,
-  onSaveSettings
+function MapSettingsPanel({
+  mapSettings,
+  aiSettings,
+  anchor,
+  onSaveMap,
+  onSaveAi,
+  onSaveAnchor
 }: {
-  place: Place;
-  settings?: AiSettings;
-  suggestion?: { title: string; summary: string; stops: string[] };
-  error?: string;
-  loading: boolean;
-  onSaveSettings: (input: SaveAiSettingsInput) => Promise<void>;
+  mapSettings?: MapSettings;
+  aiSettings?: AiSettings;
+  anchor: Anchor;
+  onSaveMap: (input: SaveMapSettingsInput) => Promise<void>;
+  onSaveAi: (input: SaveAiSettingsInput) => Promise<void>;
+  onSaveAnchor: (input: SaveAnchorInput) => void;
 }) {
-  const { generateSuggestion } = useAppStore();
-  const defaultPrompt = buildPlacePrompt(place);
-  const [prompt, setPrompt] = useState(defaultPrompt);
-  const [baseUrl, setBaseUrl] = useState(settings?.baseUrl ?? "https://api.longcat.chat/openai/v1");
-  const [model, setModel] = useState(settings?.model ?? "LongCat-2.0-Preview");
-  const [apiKey, setApiKey] = useState("");
-  const [allowFootprints, setAllowFootprints] = useState(settings?.allowFootprints ?? true);
-  const [allowNotes, setAllowNotes] = useState(settings?.allowNotes ?? true);
-
-  useEffect(() => {
-    setPrompt(defaultPrompt);
-  }, [defaultPrompt]);
-
-  useEffect(() => {
-    setBaseUrl(settings?.baseUrl ?? "https://api.longcat.chat/openai/v1");
-    setModel(settings?.model ?? "LongCat-2.0-Preview");
-    setAllowFootprints(settings?.allowFootprints ?? true);
-    setAllowNotes(settings?.allowNotes ?? true);
-  }, [settings]);
-
-  const hasKey = Boolean(settings?.apiKeySet);
-
-  return (
-    <section className="panelContent">
-      <span className="eyebrow">AI 城市教练</span>
-      <h2>配置 API Key 后介绍 {place.name}</h2>
-      <div className="settingsStatus">
-        <Bot size={17} />
-        <span>AI API Key：{hasKey ? "已配置" : "未配置"}。未配置时不会生成本地建议。</span>
-      </div>
-
-      <div className="aiSettingsGrid">
-        <label>
-          <span>Base URL</span>
-          <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://api.longcat.chat/openai/v1" />
-        </label>
-        <label>
-          <span>Model</span>
-          <input value={model} onChange={(event) => setModel(event.target.value)} placeholder="LongCat-2.0-Preview" />
-        </label>
-        <label className="fullWidth">
-          <span>API Key</span>
-          <input value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={hasKey ? "已配置，留空则不覆盖" : "请输入 API Key"} type="password" />
-        </label>
-        <label className="checkRow">
-          <input type="checkbox" checked={allowFootprints} onChange={(event) => setAllowFootprints(event.target.checked)} />
-          <span>允许使用本地打卡地点作为上下文</span>
-        </label>
-        <label className="checkRow">
-          <input type="checkbox" checked={allowNotes} onChange={(event) => setAllowNotes(event.target.checked)} />
-          <span>允许使用本地笔记作为上下文</span>
-        </label>
-      </div>
-      <button
-        className="secondaryButton"
-        onClick={() =>
-          onSaveSettings({
-            baseUrl,
-            model,
-            apiKey,
-            allowFootprints,
-            allowNotes,
-            allowImages: false
-          })
-        }
-      >
-        <KeyRound size={16} /> 保存 AI 配置
-      </button>
-
-      <h3>点击地点上下文</h3>
-      <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} />
-      <button className="primaryButton" disabled={!hasKey || loading} onClick={() => generateSuggestion(prompt)}>
-        <Sparkles size={17} /> {loading ? "生成中" : `用 AI 介绍 ${place.name}`}
-      </button>
-      {!hasKey && <div className="errorBox">请先保存 AI API Key。这里不会提供无需 Key 的本地建议。</div>}
-      {error && <div className="errorBox">{error}</div>}
-      {suggestion && (
-        <div className="suggestion">
-          <strong>{suggestion.title}</strong>
-          <p>{suggestion.summary}</p>
-          <span>{suggestion.stops.join(" -> ")}</span>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function MapSettingsPanel({ settings, onSave }: { settings?: MapSettings; onSave: (input: SaveMapSettingsInput) => Promise<void> }) {
   const [amapKey, setAmapKey] = useState("");
   const [amapSecurityCode, setAmapSecurityCode] = useState("");
+  const [anchorName, setAnchorName] = useState(anchor.name);
+  const [anchorAddress, setAnchorAddress] = useState(anchor.address);
+  const [anchorLng, setAnchorLng] = useState(String(anchor.point.lng));
+  const [anchorLat, setAnchorLat] = useState(String(anchor.point.lat));
+
+  useEffect(() => {
+    setAnchorName(anchor.name);
+    setAnchorAddress(anchor.address);
+    setAnchorLng(String(anchor.point.lng));
+    setAnchorLat(String(anchor.point.lat));
+  }, [anchor]);
+
   return (
     <section className="panelContent">
-      <h2>高德地图设置</h2>
-      <p>配置高德 Web JS API 2.0 的 Key 和 Security Code。配置会保存到本机 SQLite 设置表。</p>
-      <label>
-        <span>Web JS API Key</span>
-        <input value={amapKey} onChange={(event) => setAmapKey(event.target.value)} placeholder={settings?.amapKeySet ? "已配置，留空则不覆盖" : "请输入高德 Key"} />
-      </label>
-      <label>
-        <span>Security Code</span>
-        <input value={amapSecurityCode} onChange={(event) => setAmapSecurityCode(event.target.value)} placeholder={settings?.amapSecurityCodeSet ? "已配置，留空则不覆盖" : "请输入 Security Code"} />
-      </label>
-      <button className="primaryButton" onClick={() => onSave({ amapKey, amapSecurityCode })}>
-        <KeyRound size={17} /> 保存地图配置
-      </button>
-      <div className="settingsStatus">
-        <CheckCircle2 size={17} />
-        <span>Key：{settings?.amapKeySet ? "已配置" : "未配置"}；SecurityCode：{settings?.amapSecurityCodeSet ? "已配置" : "未配置"}</span>
+      <span className="eyebrow">本机设置</span>
+      <h2>锚点、地图与 AI 设置</h2>
+      <p>配置项会保存在本机。工作锚点决定地图默认中心、路线起点和 AI 城市建议的上下文。</p>
+      <div className="settingsGroup">
+        <h3>工作锚点</h3>
+        <label>
+          <span>锚点名称</span>
+          <input value={anchorName} onChange={(event) => setAnchorName(event.target.value)} placeholder="例如：字节跳动大钟寺工区" />
+        </label>
+        <label>
+          <span>地址备注</span>
+          <input value={anchorAddress} onChange={(event) => setAnchorAddress(event.target.value)} placeholder="例如：北京市海淀区大钟寺" />
+        </label>
+        <div className="coordinateGrid">
+          <label>
+            <span>经度 lng</span>
+            <input value={anchorLng} onChange={(event) => setAnchorLng(event.target.value)} inputMode="decimal" />
+          </label>
+          <label>
+            <span>纬度 lat</span>
+            <input value={anchorLat} onChange={(event) => setAnchorLat(event.target.value)} inputMode="decimal" />
+          </label>
+        </div>
+        <button
+          className="primaryButton"
+          onClick={() =>
+            onSaveAnchor({
+              name: anchorName,
+              address: anchorAddress,
+              lng: Number(anchorLng),
+              lat: Number(anchorLat)
+            })
+          }
+        >
+          <Crosshair size={17} /> 保存工作锚点
+        </button>
+        <div className="settingsStatus">
+          <Navigation size={17} />
+          <span>当前锚点：{anchor.name}（{anchor.point.lng.toFixed(4)}, {anchor.point.lat.toFixed(4)}）</span>
+        </div>
+      </div>
+      <div className="settingsGroup">
+        <h3>高德地图</h3>
+        <label>
+          <span>Web JS API Key</span>
+          <input value={amapKey} onChange={(event) => setAmapKey(event.target.value)} placeholder={mapSettings?.amapKeySet ? "已配置，留空则不覆盖" : "请输入高德 Key"} />
+        </label>
+        <label>
+          <span>Security Code</span>
+          <input value={amapSecurityCode} onChange={(event) => setAmapSecurityCode(event.target.value)} placeholder={mapSettings?.amapSecurityCodeSet ? "已配置，留空则不覆盖" : "请输入 Security Code"} />
+        </label>
+        <button className="primaryButton" onClick={() => onSaveMap({ amapKey, amapSecurityCode })}>
+          <KeyRound size={17} /> 保存地图配置
+        </button>
+        <div className="settingsStatus">
+          <CheckCircle2 size={17} />
+          <span>Key：{mapSettings?.amapKeySet ? "已配置" : "未配置"}；SecurityCode：{mapSettings?.amapSecurityCodeSet ? "已配置" : "未配置"}</span>
+        </div>
+      </div>
+      <div className="settingsGroup">
+        <h3>AI 城市建议</h3>
+        <CompactAiSetup settings={aiSettings} onSaveSettings={onSaveAi} />
       </div>
     </section>
   );
@@ -841,6 +1044,26 @@ function InfoBlock({ title, text }: { title: string; text: string }) {
       <p>{text}</p>
     </div>
   );
+}
+
+function loadWorkAnchor(): Anchor {
+  try {
+    const raw = localStorage.getItem(WORK_ANCHOR_STORAGE_KEY);
+    if (!raw) return workAnchor;
+    const parsed = JSON.parse(raw) as Anchor;
+    if (!parsed?.name || !parsed?.point || !Number.isFinite(parsed.point.lng) || !Number.isFinite(parsed.point.lat)) {
+      return workAnchor;
+    }
+    return {
+      id: parsed.id || "custom-work-anchor",
+      type: parsed.type || "work",
+      name: parsed.name,
+      address: parsed.address || "",
+      point: parsed.point
+    };
+  } catch {
+    return workAnchor;
+  }
 }
 
 function mergePlaces(checkins: Checkin[]): Place[] {
@@ -878,7 +1101,87 @@ function buildSearchResults(query: string, places: Place[], tasks: CityTask[], t
   ];
 }
 
-function buildPlaceCoach(place: Place) {
+function findTaskForPlace(placeId: string, tasks: CityTask[]) {
+  return tasks.find((task) => task.targets.includes(placeId)) ?? tasks[0];
+}
+
+function findRouteTemplateForPlace(placeId: string, templates: RouteTemplate[]) {
+  return templates.find((template) => template.stopIds.includes(placeId)) ?? templates[0];
+}
+
+function buildDirectionProgress(checkins: Checkin[], routes: ExplorationRoute[], places: Place[]): DirectionProgress[] {
+  const configs = [
+    {
+      id: "haidian-short",
+      label: "海淀短线",
+      summary: "从工作锚点、知春路、西土城建立工作日方向感。",
+      placeIds: ["dazhongsi", "zhichunlu", "xitucheng", "wudaokou"],
+      routeThemes: ["工作日短线", "海淀"]
+    },
+    {
+      id: "old-city-axis",
+      label: "老城中轴",
+      summary: "从西直门进入什刹海、鼓楼和中轴线。",
+      placeIds: ["xizhimen", "shichahai", "gulou", "forbidden-city", "qianmen"],
+      routeThemes: ["老城", "中轴"]
+    },
+    {
+      id: "chaoyang-social",
+      label: "朝阳社交",
+      summary: "理解三里屯、亮马河、国贸代表的夜间和商务场景。",
+      placeIds: ["sanlitun", "liangmahe", "guomao", "wangjing", "798"],
+      routeThemes: ["朝阳", "社交"]
+    },
+    {
+      id: "south-renewal",
+      label: "南城更新",
+      summary: "补齐北京南站、丽泽、亦庄代表的南向城市更新。",
+      placeIds: ["beijing-south", "lize", "yizhuang"],
+      routeThemes: ["南城", "更新"]
+    },
+    {
+      id: "weekend-outer",
+      label: "远郊周末",
+      summary: "把首钢、通州和更远的周末目的地纳入个人地图。",
+      placeIds: ["shougang", "tongzhou", "summer-palace", "olympic-forest"],
+      routeThemes: ["周末", "远郊"]
+    }
+  ];
+  const checkinNames = new Set(checkins.map((checkin) => checkin.placeName));
+  return configs.map((config) => {
+    const placeNames = config.placeIds
+      .map((id) => places.find((place) => place.id === id)?.name)
+      .filter(Boolean) as string[];
+    const knownPlaceCount = placeNames.filter((name) => checkinNames.has(name)).length;
+    const routeHit = routes.some((route) => {
+      const text = `${route.title} ${route.note}`;
+      const routePlaces = route.stops.map((stop) => stop.placeName);
+      return (
+        config.routeThemes.some((theme) => text.includes(theme)) ||
+        placeNames.some((name) => routePlaces.includes(name))
+      );
+    });
+    const checkinCount = checkins.filter((checkin) => placeNames.includes(checkin.placeName)).length;
+    const learnedCount = config.placeIds.filter((id) => {
+      const place = places.find((item) => item.id === id);
+      return place && ["learned", "visited", "deep"].includes(place.unlockState);
+    }).length;
+    const score = Math.min(100, learnedCount * 18 + knownPlaceCount * 18 + (routeHit ? 28 : 0) + Math.min(checkinCount, 2) * 9);
+    return {
+      ...config,
+      score,
+      checkinCount,
+      routeHit,
+      complete: score >= 70
+    };
+  });
+}
+
+function getNextDirectionGap(progress: DirectionProgress[]) {
+  return progress.find((direction) => !direction.complete) ?? progress.sort((a, b) => a.score - b.score)[0];
+}
+
+function buildPlaceCoach(place: Place, anchor: Anchor = workAnchor) {
   const concepts = place.concepts?.length ? place.concepts.join("、") : "个人记忆";
   return {
     intro:
@@ -886,52 +1189,32 @@ function buildPlaceCoach(place: Place) {
       `${place.name} 不是地图上的孤立点，它是你正在形成的个人北京地图里的一枚坐标。先把它和工作锚点、交通方向、生活场景联系起来，比背一串攻略更有用。`,
     whyNow:
       place.anchorRelation ??
-      `你当前从 ${workAnchor.name} 出发理解北京，${place.name} 可以作为一次低成本的空间练习：看它在哪个方向、属于哪个区、和你已经去过的地方是否连得上。`,
+      `你当前从 ${anchor.name} 出发理解北京，${place.name} 可以作为一次低成本的空间练习：看它在哪个方向、属于哪个区、和你已经去过的地方是否连得上。`,
     observe:
       `到这里时先观察三件事：它和地铁/环路的关系，它更像工作日地点还是周末地点，以及它代表的城市概念：${concepts}。`,
     nextAction:
       place.recommendedAction ??
-      `把 ${place.name} 加入一条从大钟寺出发的路线；如果已经去过，就补一条打卡笔记，写清楚“我为什么记住这里”。`
+      `把 ${place.name} 加入一条从 ${anchor.name} 出发的路线；如果已经去过，就补一条打卡笔记，写清楚“我为什么记住这里”。`
   };
 }
 
-function buildPlacePrompt(place: Place) {
-  const coach = buildPlaceCoach(place);
+function buildInteractiveGuidePrompt(place: Place, anchor: Anchor = workAnchor) {
+  const coach = buildPlaceCoach(place, anchor);
   return [
-    `请以“北京记忆地图”的城市教练口吻，具体介绍我刚点击的地点：${place.name}。`,
-    `我的工作锚点是：${workAnchor.name}。`,
-    `地点所在区域：${place.district}。`,
-    `请不要写百科介绍，要像一个熟悉北京的朋友解释：`,
-    `1. 这个地方对刚来北京的人为什么重要；`,
-    `2. 它和大钟寺/海淀/老城/朝阳等方向的关系；`,
-    `3. 适合什么时候去、和谁去；`,
-    `4. 第一次去应该观察什么；`,
-    `5. 给出一条可落到地图上的路线建议。`,
-    `已知认知信息：${coach.intro}`,
-    `锚点关系：${coach.whyNow}`,
-    `观察重点：${coach.observe}`,
-    `建议行动：${coach.nextAction}`,
-    `输出 JSON，字段为 title、summary、stops。summary 要自然、有温度，但保持简洁。`
-  ].join("\n");
-}
-
-function buildInteractiveGuidePrompt(place: Place) {
-  const coach = buildPlaceCoach(place);
-  return [
-    `你是“北京记忆地图”的 3D 动漫城市导游，名字叫小京。`,
+    `你是“北京记忆地图”的城市认知教练，口吻俏皮可爱，像一个很会带路的北京朋友。`,
     `用户刚点击了地图上的地点：${place.name}。`,
-    `用户的工作锚点：${workAnchor.name}。地点区域：${place.district}。`,
-    `请用有趣、有人味、像朋友带路的口吻介绍这个地点，不要写百科词条。`,
+    `用户的工作锚点：${anchor.name}。地点区域：${place.district}。`,
+    `请用清晰、具体、俏皮但不幼稚的口吻介绍这个地点，不要写百科词条，不要堆表情符号。`,
     `你需要回答：`,
     `1. 用 2-3 句话讲这个地方为什么值得新人认识；`,
     `2. 用一个轻松比喻解释它在北京空间里的位置；`,
     `3. 给出第一次去的观察任务，比如看地铁、环路、人群、街区气质；`,
-    `4. 规划一条从大钟寺出发、能落到地图上的路线，stops 只放地点名数组。`,
+    `4. 规划一条从${anchor.name}出发、能落到地图上的路线，stops 只放地点名数组。`,
     `已知认知信息：${coach.intro}`,
     `锚点关系：${coach.whyNow}`,
     `观察重点：${coach.observe}`,
     `下一步行动：${coach.nextAction}`,
-    `输出严格 JSON：{"title":"...","summary":"...","stops":["大钟寺","..."]}。summary 可以活泼，但不要超过 180 字。`
+    `输出严格 JSON：{"title":"...","summary":"...","stops":["${anchor.name}","..."]}。summary 要活泼、有一点可爱的小比喻，但不要超过 180 字。`
   ].join("\n");
 }
 
